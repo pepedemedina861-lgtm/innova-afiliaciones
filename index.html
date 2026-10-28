@@ -61,7 +61,7 @@
       <div class="two"><label>Mes pagado<input id="paymentMonth" type="month" required></label><label>Fecha de recaudo<input id="paymentDate" type="date" required></label></div>
       <div class="three"><label>Valor recibido (COP)<input id="paymentAmount" type="number" min="0" step="100" required placeholder="0"></label><label>Valor para caja (COP)<input id="paymentBoxCost" type="number" min="0" step="100" required placeholder="0"></label><label>Comisión reclutadora (COP)<input id="paymentCommission" type="number" min="0" step="100" required placeholder="0"></label></div>
       <div class="check-row"><label><input id="boxPaid" type="checkbox"> Pago a caja realizado</label><label><input id="commissionPaid" type="checkbox"> Comisión pagada</label></div>
-      <label>Comprobante del recaudo (foto)<input id="paymentPhoto" type="file" accept="image/*" capture="environment"></label>
+      <label>Comprobante del recaudo (foto)<input id="paymentPhoto" type="file" accept="image/*"></label>
       <button id="ocrBtn" class="outline" type="button">Leer datos desde la imagen</button>
       <p id="ocrStatus" class="hint">Puedes intentar leer el comprobante con OCR cuando tengas internet. Revisa siempre los datos detectados.</p>
       <div class="two"><label>Nombre de quien paga<input id="payerName" maxlength="120" placeholder="Nombre que aparece en el comprobante"></label><label>Fecha del comprobante<input id="receiptDate" type="date"></label></div>

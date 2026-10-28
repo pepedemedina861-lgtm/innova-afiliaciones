@@ -64,3 +64,9 @@ ACTUALIZACIÓN v5 — DETECCIÓN DE POSIBLES PAGOS DUPLICADOS
 - El administrador puede cancelar para revisar o guardar de todos modos si confirma que son pagos diferentes. No se borra ni modifica automáticamente ningún pago existente.
 - Una coincidencia es una alerta, no una prueba definitiva de duplicado. Si no se completó fecha/hora o referencia, algunos duplicados pueden no detectarse.
 - Para actualizar, exporta primero una copia JSON y sube todos los archivos individuales a la raíz del mismo repositorio GitHub Pages. Se actualizó la caché a innova-afiliaciones-v5. No borres el almacenamiento local ni cambies de dominio.
+
+
+ACTUALIZACION v6 — SELECCIONAR FOTOS YA TOMADAS
+- El campo de comprobante acepta imágenes desde la galería/archivos del dispositivo; se quitó el atributo que priorizaba abrir la cámara directamente. En teléfonos, el selector puede ofrecer Galería, Fotos, Archivos o Cámara según el navegador/dispositivo.
+- La caché del service worker se actualizó a innova-afiliaciones-v6.
+- Para actualizar, exporta una copia JSON y sube los archivos individuales a la raíz del mismo repositorio GitHub Pages. No borres los datos del navegador.
