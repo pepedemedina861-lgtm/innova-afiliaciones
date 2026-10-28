@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#137a45">
-<meta name="description" content="Control local de afiliaciones y pagos mensuales de INNOVA">
+<meta name="theme-color" content="#090909">
+<meta name="description" content="Control local de afiliaciones, reclutadoras y pagos mensuales de INNOVA">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
@@ -12,66 +12,111 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brandmark">I</div><div><strong>INNOVA</strong><small>AFILIACIONES</small></div>
+  <img class="brand-logo" src="logo-innova.png" alt="INNOVA Obras K.M.">
+  <div class="brand-copy"><strong>INNOVA</strong><small>AFILIACIONES</small></div>
   <button id="installBtn" class="outline hidden">Instalar</button>
 </header>
 <main>
-  <section class="intro"><p class="eyebrow">PANEL DE CONTROL</p><h1>Afiliaciones y pagos</h1><p class="muted">Tus registros se guardan en este teléfono.</p></section>
+  <section class="intro"><p class="eyebrow">ADMINISTRACIÓN</p><h1>Control de afiliaciones</h1><p class="muted">Afiliados, reclutadoras, pagos y resultados mensuales.</p></section>
   <section class="stats">
     <article><span>Afiliados</span><strong id="totalCount">0</strong></article>
-    <article><span>Activos</span><strong id="activeCount">0</strong></article>
-    <article><span>Pendientes este mes</span><strong id="pendingCount">0</strong></article>
+    <article><span>En mora / bloqueados</span><strong id="blockedCount">0</strong></article>
+    <article><span>Ingresos del mes</span><strong id="monthIncome">$0</strong></article>
+    <article><span>Ganancia estimada</span><strong id="monthProfit">$0</strong></article>
   </section>
   <nav class="tabs" aria-label="Secciones">
-    <button class="tab active" data-tab="people">Afiliados</button><button class="tab" data-tab="payments">Pagos</button><button class="tab" data-tab="backup">Copias y datos</button>
+    <button class="tab active" data-tab="dashboard">Resumen</button>
+    <button class="tab" data-tab="people">Afiliados</button>
+    <button class="tab" data-tab="recruiters">Reclutadoras</button>
+    <button class="tab" data-tab="payments">Pagos</button>
+    <button class="tab" data-tab="reports">Reportes</button>
+    <button class="tab" data-tab="backup">Copias</button>
   </nav>
-  <section id="peoplePanel" class="panel">
+  <section id="dashboardPanel" class="panel">
+    <div class="section-head"><h2>Resumen mensual</h2><label class="month-picker">Mes <input id="dashMonth" type="month"></label></div>
+    <div class="metric-grid">
+      <article><span>Recaudado</span><strong id="dashCollected">$0</strong></article>
+      <article><span>Pago a caja registrado</span><strong id="dashBox">$0</strong></article>
+      <article><span>Comisiones reclutadoras</span><strong id="dashCommission">$0</strong></article>
+      <article><span>Ganancia estimada</span><strong id="dashProfit">$0</strong></article>
+    </div>
+    <h3>Estado de afiliados</h3><div id="statusSummary" class="summary-list"></div>
+    <h3>Recaudo por reclutadora</h3><div id="recruiterSummary" class="summary-list"></div>
+    <p class="hint">La ganancia estimada resta el costo de caja y la comisión configurada a lo recaudado. Los pagos efectivamente realizados se marcan por separado en cada registro.</p>
+  </section>
+  <section id="peoplePanel" class="panel hidden">
     <div class="section-head"><h2>Afiliados</h2><button id="newPersonBtn" class="primary">+ Nuevo</button></div>
     <input id="searchInput" class="search" placeholder="Buscar por nombre o documento…" autocomplete="off">
-    <div id="peopleList" class="list"></div>
-    <p id="emptyPeople" class="empty">Todavía no hay afiliados. Pulsa “Nuevo” para registrar el primero.</p>
+    <div id="peopleList" class="list"></div><p id="emptyPeople" class="empty">Todavía no hay afiliados.</p>
+  </section>
+  <section id="recruitersPanel" class="panel hidden">
+    <div class="section-head"><h2>Reclutadoras</h2><button id="newRecruiterBtn" class="primary">+ Nueva</button></div>
+    <p class="muted">Registra a cada reclutadora y consulta cuántas personas ha captado y sus comisiones.</p>
+    <div id="recruiterList" class="list"></div><p id="emptyRecruiters" class="empty">Todavía no hay reclutadoras.</p>
   </section>
   <section id="paymentsPanel" class="panel hidden">
-    <div class="section-head"><h2>Registrar pago</h2></div>
+    <div class="section-head"><h2>Registrar pago mensual</h2></div>
     <form id="paymentForm" class="form-card">
       <label>Afiliado<select id="paymentPerson" required></select></label>
-      <div class="two"><label>Mes pagado<input id="paymentMonth" type="month" required></label><label>Valor (COP)<input id="paymentAmount" type="number" min="0" step="100" required placeholder="Ej. 50000"></label></div>
-      <label>Fecha del pago<input id="paymentDate" type="date" required></label>
-      <label>Comprobante (foto)<input id="paymentPhoto" type="file" accept="image/*" capture="environment"></label>
-      <p class="hint">La foto se guarda dentro de los datos locales de esta aplicación. Las fotos grandes pueden ocupar bastante espacio.</p>
+      <div class="two"><label>Mes pagado<input id="paymentMonth" type="month" required></label><label>Fecha de recaudo<input id="paymentDate" type="date" required></label></div>
+      <div class="three"><label>Valor recibido (COP)<input id="paymentAmount" type="number" min="0" step="100" required placeholder="0"></label><label>Valor para caja (COP)<input id="paymentBoxCost" type="number" min="0" step="100" required placeholder="0"></label><label>Comisión reclutadora (COP)<input id="paymentCommission" type="number" min="0" step="100" required placeholder="0"></label></div>
+      <div class="check-row"><label><input id="boxPaid" type="checkbox"> Pago a caja realizado</label><label><input id="commissionPaid" type="checkbox"> Comisión pagada</label></div>
+      <label>Comprobante del recaudo (foto)<input id="paymentPhoto" type="file" accept="image/*" capture="environment"></label>
+      <p class="hint">La imagen queda guardada en este teléfono. Máximo 5 MB por foto.</p>
       <label>Observaciones<textarea id="paymentNotes" rows="2" placeholder="Opcional"></textarea></label>
       <button class="primary full" type="submit">Guardar pago</button>
     </form>
-    <h2 class="subheading">Historial de pagos</h2><div id="paymentList" class="list"></div>
-    <p id="emptyPayments" class="empty">Aún no hay pagos registrados.</p>
+    <h3 class="subheading">Historial de pagos</h3><div id="paymentList" class="list"></div><p id="emptyPayments" class="empty">Aún no hay pagos registrados.</p>
+  </section>
+  <section id="reportsPanel" class="panel hidden">
+    <div class="section-head"><h2>Reporte mensual</h2><label class="month-picker">Mes <input id="reportMonth" type="month"></label></div>
+    <div class="metric-grid">
+      <article><span>Ingresos recibidos</span><strong id="rIncome">$0</strong></article>
+      <article><span>Costos de caja</span><strong id="rBox">$0</strong></article>
+      <article><span>Comisiones</span><strong id="rCommission">$0</strong></article>
+      <article><span>Ganancia estimada</span><strong id="rProfit">$0</strong></article>
+    </div>
+    <div class="chart-card"><h3>Distribución del mes</h3><div id="reportBars" class="bars"></div></div>
+    <h3>Detalle por reclutadora y afiliado</h3><div id="reportDetails" class="list"></div>
+    <button id="reportCsvBtn" class="outline full">Exportar detalle mensual CSV</button>
+    <p class="hint">Los reportes se calculan con los pagos registrados para el mes elegido. La ganancia es una estimación antes de otros gastos generales o impuestos.</p>
   </section>
   <section id="backupPanel" class="panel hidden">
     <h2>Copias de seguridad</h2>
-    <div class="notice"><strong>Importante:</strong> los datos están en este dispositivo y navegador. Si borras los datos del navegador, desinstalas la app o pierdes el teléfono, puedes perderlos. Exporta copias regularmente y guárdalas en un lugar seguro.</div>
-    <button id="exportBtn" class="primary full">Exportar copia de seguridad</button>
-    <label class="import-label">Restaurar desde una copia JSON<input id="importInput" type="file" accept=".json,application/json"></label>
-    <button id="csvBtn" class="outline full">Exportar lista de afiliados (CSV)</button>
+    <div class="notice"><strong>Importante:</strong> los datos se guardan en este dispositivo y navegador. Exporta copias regularmente y guárdalas de forma segura.</div>
+    <button id="exportBtn" class="primary full">Exportar copia completa (incluye fotos)</button>
+    <label class="import-label">Restaurar desde copia JSON<input id="importInput" type="file" accept=".json,application/json"></label>
+    <button id="csvBtn" class="outline full">Exportar afiliados CSV</button>
     <button id="clearBtn" class="danger full">Eliminar todos los datos del teléfono</button>
-    <p class="hint">Las copias JSON incluyen los registros y las fotos de comprobantes. Contienen datos personales: no las compartas por canales inseguros.</p>
-    <h3>Sobre la privacidad</h3><p class="muted">Esta versión no tiene cuentas, servidor ni sincronización. No reemplaza una política de tratamiento de datos ni las obligaciones legales aplicables a la información personal.</p>
+    <h3>Privacidad</h3><p class="muted">No hay cuentas, servidor ni sincronización. El repositorio público contiene el código, no debe contener información de afiliados. Protege el dispositivo y los archivos de copia.</p>
   </section>
 </main>
-<dialog id="personDialog">
-  <form id="personForm" method="dialog" class="dialog-form">
-    <div class="section-head"><h2 id="personDialogTitle">Nuevo afiliado</h2><button type="button" id="closeDialog" class="icon-btn" aria-label="Cerrar">✕</button></div>
-    <input id="personId" type="hidden">
-    <label>Nombre completo *<input id="personName" required maxlength="120" autocomplete="name"></label>
-    <label>Número de documento *<input id="personDocument" required maxlength="40" inputmode="numeric"></label>
-    <label>Teléfono<input id="personPhone" maxlength="30" type="tel" autocomplete="tel"></label>
-    <label>Caja de compensación<input id="personFund" maxlength="100" placeholder="Nombre de la caja"></label>
-    <div class="two"><label>Fecha de afiliación<input id="personStart" type="date"></label><label>Valor mensual (COP)<input id="personFee" type="number" min="0" step="100" placeholder="0"></label></div>
-    <label>Estado<select id="personStatus"><option>Activo</option><option>Inactivo</option></select></label>
-    <label>Observaciones<textarea id="personNotes" rows="2" maxlength="1000"></textarea></label>
-    <button class="primary full" type="submit">Guardar afiliado</button>
-  </form>
-</dialog>
+<dialog id="personDialog"><form id="personForm" method="dialog" class="dialog-form">
+  <div class="section-head"><h2 id="personDialogTitle">Nuevo afiliado</h2><button type="button" id="closePersonDialog" class="icon-btn">✕</button></div>
+  <input id="personId" type="hidden">
+  <label>Nombre completo *<input id="personName" required maxlength="120"></label>
+  <label>Número de documento *<input id="personDocument" required maxlength="40"></label>
+  <div class="two"><label>Teléfono<input id="personPhone" maxlength="30" type="tel"></label><label>Estado administrativo<select id="personStatus"><option>Activo</option><option>Inactivo</option></select></label></div>
+  <label>Reclutadora<select id="personRecruiter"></select></label>
+  <div class="three"><label>Cuota mensual (COP)<input id="personFee" type="number" min="0" step="100"></label><label>Pago a caja (COP)<input id="personBoxCost" type="number" min="0" step="100"></label><label>Comisión reclutadora (COP)<input id="personCommission" type="number" min="0" step="100"></label></div>
+  <label>Fecha de afiliación<input id="personStart" type="date"></label>
+  <label>Notas<textarea id="personNotes" rows="2"></textarea></label>
+  <label class="check-row"><input id="personBlocked" type="checkbox"> Bloquear manualmente este afiliado</label>
+  <label>Motivo del bloqueo<input id="personBlockReason" maxlength="180" placeholder="Opcional"></label>
+  <button class="primary full" type="submit">Guardar afiliado</button>
+</form></dialog>
+<dialog id="recruiterDialog"><form id="recruiterForm" method="dialog" class="dialog-form">
+  <div class="section-head"><h2 id="recruiterDialogTitle">Nueva reclutadora</h2><button type="button" id="closeRecruiterDialog" class="icon-btn">✕</button></div>
+  <input id="recruiterId" type="hidden">
+  <label>Nombre completo *<input id="recruiterName" required maxlength="120"></label>
+  <label>Teléfono<input id="recruiterPhone" type="tel" maxlength="30"></label>
+  <label>Documento<input id="recruiterDocument" maxlength="40"></label>
+  <label>Comisión predeterminada por persona (COP)<input id="recruiterCommission" type="number" min="0" step="100" value="0"></label>
+  <label>Estado<select id="recruiterStatus"><option>Activa</option><option>Inactiva</option></select></label>
+  <label>Notas<textarea id="recruiterNotes" rows="2"></textarea></label>
+  <button class="primary full" type="submit">Guardar reclutadora</button>
+</form></dialog>
 <div id="toast" role="status" aria-live="polite"></div>
-<footer>INNOVA · Control local de afiliaciones</footer>
+<footer>INNOVA · Afiliaciones y control mensual</footer>
 <script src="app.js"></script>
-</body>
-</html>
+</body></html>
