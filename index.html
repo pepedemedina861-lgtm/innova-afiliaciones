@@ -121,7 +121,19 @@
   <label>Notas<textarea id="recruiterNotes" rows="2"></textarea></label>
   <button class="primary full" type="submit">Guardar reclutadora</button>
 </form></dialog>
+<dialog id="duplicateDialog" class="duplicate-dialog">
+  <div class="dialog-form">
+    <div class="section-head"><h2>Posibles pagos duplicados</h2></div>
+    <p>Encontré coincidencias con pagos ya registrados. Revisa los datos antes de continuar.</p>
+    <div id="duplicateMatches" class="duplicate-matches"></div>
+    <div class="two">
+      <button id="cancelDuplicate" class="outline" type="button">Cancelar y revisar</button>
+      <button id="saveDuplicateAnyway" class="primary" type="button">Guardar de todos modos</button>
+    </div>
+  </div>
+</dialog>
 <div id="toast" role="status" aria-live="polite"></div>
 <footer>INNOVA · Afiliaciones y control mensual</footer>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>\n<script src="app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="app.js"></script>
 </body></html>

@@ -65,30 +65,128 @@ $('recruiterList').addEventListener('click',async e=>{const b=e.target.closest('
 $('paymentDate').value=today();$('receiptDate').value=today();$('paymentMonth').value=monthNow();$('dashMonth').value=monthNow();$('reportMonth').value=monthNow();
 $('paymentPerson').addEventListener('change',async()=>{const person=(await all('people')).find(p=>p.id===$('paymentPerson').value);if(person&&!$('payerName').value.trim())$('payerName').value=person.name;});
 function extractReceiptFields(text){
- const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
- // Date formats: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD
+ const lines=text.split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
+ const cleanName=x=>x.replace(/^[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+/,'').replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ .'-]+$/,'').trim();
+ // Date in numeric or Spanish long format, e.g. "27 de octubre de 2026"
  let m=text.match(/\b([0-3]?\d)[\/.-]([01]?\d)[\/.-]((?:20)?\d{2})\b/);
  if(m){let y=m[3];if(y.length===2)y='20'+y;$('receiptDate').value=`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`}
- else {m=text.match(/\b(20\d{2})-([01]\d)-([0-3]\d)\b/);if(m)$('receiptDate').value=`${m[1]}-${m[2]}-${m[3]}`}
- m=text.match(/\b([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?\s*(AM|PM)?\b/i);
- if(m){let h=Number(m[1]);if(m[3]&&m[3].toUpperCase()==='PM'&&h<12)h+=12;if(m[3]&&m[3].toUpperCase()==='AM'&&h===12)h=0;$('receiptTime').value=String(h).padStart(2,'0')+':'+m[2]}
- const named=lines.find(line=>/(pagad[oa]\s+por|nombre\s+(del\s+)?pagador|titular|persona\s+que\s+paga|realizad[oa]\s+por|cliente)\s*[:\-]/i.test(line));
- if(named){const candidate=named.replace(/^.*?(pagad[oa]\s+por|nombre\s+(del\s+)?pagador|titular|persona\s+que\s+paga|realizad[oa]\s+por|cliente)\s*[:\-]?\s*/i,'').trim();if(candidate.length>3&&candidate.length<121)$('payerName').value=candidate}
+ else {
+   m=text.match(/\b([0-3]?\d)\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+de\s+(20\d{2})/i);
+   if(m){const months={enero:'01',febrero:'02',marzo:'03',abril:'04',mayo:'05',junio:'06',julio:'07',agosto:'08',septiembre:'09',setiembre:'09',octubre:'10',noviembre:'11',diciembre:'12'};$('receiptDate').value=`${m[3]}-${months[m[2].toLowerCase()]}-${m[1].padStart(2,'0')}`}
+   else {m=text.match(/\b(20\d{2})-([01]\d)-([0-3]\d)\b/);if(m)$('receiptDate').value=`${m[1]}-${m[2]}-${m[3]}`}
+ }
+ m=text.match(/\b([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?\s*(?:(a|p)\s*\.?\s*m\.?)?/i);
+ if(m){let h=Number(m[1]);if(m[3]&&m[3].toLowerCase()==='p'&&h<12)h+=12;if(m[3]&&m[3].toLowerCase()==='a'&&h===12)h=0;$('receiptTime').value=String(h).padStart(2,'0')+':'+m[2]}
+ // The example receipt labels the payer as "De" on its own line.
+ let idx=lines.findIndex(line=>/^de\s*[:\-]?$/i.test(line));
+ if(idx>=0&&lines[idx+1]){const candidate=cleanName(lines[idx+1]);if(candidate.length>4&&/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(candidate))$('payerName').value=candidate}
+ if(!$('payerName').value.trim()){
+   const named=lines.find(line=>/(pagad[oa]\s+por|nombre\s+(del\s+)?pagador|titular|persona\s+que\s+paga|realizad[oa]\s+por|cliente)\s*[:\-]/i.test(line));
+   if(named){const candidate=cleanName(named.replace(/^.*?(pagad[oa]\s+por|nombre\s+(del\s+)?pagador|titular|persona\s+que\s+paga|realizad[oa]\s+por|cliente)\s*[:\-]?\s*/i,''));if(candidate.length>3&&candidate.length<121)$('payerName').value=candidate}
+ }
+ // Amount below "¿Cuánto?" / "Cuanto?" and Colombian currency formatting.
+ const amountIndex=lines.findIndex(line=>/cu[aá]nto/i.test(line));
+ let amountLine=amountIndex>=0?lines.slice(amountIndex+1,amountIndex+3).find(line=>/\d/.test(line)):lines.find(line=>/\$\s*[\d.,]+/.test(line));
+ if(amountLine){
+   const am=amountLine.match(/\$?\s*([\d.]+(?:,\d{1,2})?)/);
+   if(am){let n=am[1].replace(/\./g,'').replace(',','.');const value=Number(n);if(Number.isFinite(value)&&value>=0)$('paymentAmount').value=String(value)}
+ }
+ // Reference may appear on the next line after "Referencia".
+ const refIdx=lines.findIndex(line=>/referencia/i.test(line));
+ if(refIdx>=0&&lines[refIdx+1]){const candidate=lines[refIdx+1].replace(/[^A-Za-z0-9-]/g,'');if(candidate.length>=5)$('receiptReference').value=candidate}
+ else {m=text.match(/referencia\s*[:\-]?\s*([A-Z0-9-]{5,})/i);if(m)$('receiptReference').value=m[1]}
+}
+async function makeOcrImages(file){
+ const img=await createImageBitmap(file);
+ const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+ // OCR the full image and a magnified crop of the lower transaction details.
+ canvas.width=img.width;canvas.height=img.height;ctx.drawImage(img,0,0);
+ const full=canvas;
+ const crop=document.createElement('canvas');
+ const sx=0, sy=Math.floor(img.height*0.42), sw=img.width, sh=Math.floor(img.height*0.38);
+ crop.width=sw*2;crop.height=sh*2;
+ const c=crop.getContext('2d');c.drawImage(img,sx,sy,sw,sh,0,0,crop.width,crop.height);
+ const imageData=c.getImageData(0,0,crop.width,crop.height);
+ for(let i=0;i<imageData.data.length;i+=4){
+   const gray=(imageData.data[i]*0.299+imageData.data[i+1]*0.587+imageData.data[i+2]*0.114);
+   const contrast=Math.max(0,Math.min(255,(gray-128)*1.45+128));
+   imageData.data[i]=imageData.data[i+1]=imageData.data[i+2]=contrast;
+ }
+ c.putImageData(imageData,0,0);
+ return {full,crop};
 }
 $('ocrBtn').addEventListener('click',async()=>{
  const file=$('paymentPhoto').files[0];
  if(!file){toast('Primero selecciona la foto del comprobante.');return}
  if(!window.Tesseract){$('ocrStatus').textContent='No se cargó el motor OCR. Conéctate a internet y recarga la app, o escribe los datos manualmente.';return}
- $('ocrBtn').disabled=true;$('ocrStatus').textContent='Leyendo imagen; puede tardar un momento...';
+ $('ocrBtn').disabled=true;$('ocrStatus').textContent='Mejorando imagen y leyendo el comprobante...';
  try{
-  const result=await Tesseract.recognize(file,'spa+eng',{logger:m=>{if(m.status==='recognizing text')$('ocrStatus').textContent='Reconociendo texto: '+Math.round((m.progress||0)*100)+'%'}});
-  const text=result.data.text||'';$('ocrText').value=text;extractReceiptFields(text);
-  $('ocrStatus').textContent=text.trim()?'Lectura terminada. Revisa y corrige nombre, fecha y hora antes de guardar.':'No se encontró texto legible; introduce los datos manualmente.';
-  toast(text.trim()?'Comprobante leído; verifica los campos.':'No se detectó texto legible.');
- }catch(err){$('ocrStatus').textContent='No se pudo leer la imagen. Prueba con una foto más nítida o introduce los datos manualmente.';toast('Falló el reconocimiento OCR.')}
+  const images=await makeOcrImages(file);
+  const logger=m=>{if(m.status==='recognizing text')$('ocrStatus').textContent='Reconociendo texto: '+Math.round((m.progress||0)*100)+'%'};
+  const opts={logger, tessedit_pageseg_mode:6, preserve_interword_spaces:'1'};
+  const fullResult=await Tesseract.recognize(images.full,'spa+eng',opts);
+  const cropResult=await Tesseract.recognize(images.crop,'spa+eng',opts);
+  const fullText=fullResult.data.text||'', cropText=cropResult.data.text||'';
+  // Put the focused detail crop first so its clearer field labels are available to extraction.
+  const text=(cropText.trim()?cropText.trim()+'\n\n--- Texto de la imagen completa ---\n'+fullText.trim():fullText).trim();
+  $('ocrText').value=text;extractReceiptFields(cropText+'\n'+fullText);
+  const detected=[];
+  if($('payerName').value.trim())detected.push('nombre');
+  if($('receiptDate').value)detected.push('fecha');
+  if($('receiptTime').value)detected.push('hora');
+  if($('paymentAmount').value)detected.push('valor');
+  if($('receiptReference').value)detected.push('referencia');
+  $('ocrStatus').textContent=detected.length?'Datos detectados: '+detected.join(', ')+'. Verifícalos antes de guardar.':'No se identificaron campos con confianza; completa los datos manualmente.';
+  toast('Lectura terminada. Verifica los campos detectados.');
+ }catch(err){console.error(err);$('ocrStatus').textContent='No se pudo leer la imagen. Prueba con una captura más nítida o introduce los datos manualmente.';toast('Falló el reconocimiento OCR.')}
  finally{$('ocrBtn').disabled=false}
 });
-$('paymentForm').addEventListener('submit',async e=>{e.preventDefault();const personId=$('paymentPerson').value,month=$('paymentMonth').value,amount=Number($('paymentAmount').value);if(!personId||!month||amount<0)return toast('Revisa los datos del pago.');const person=(await all('people')).find(p=>p.id===personId);const file=$('paymentPhoto').files[0];let photo='';if(file){if(!file.type.startsWith('image/'))return toast('Selecciona una imagen válida.');if(file.size>5*1024*1024)return toast('La foto supera 5 MB. Reduce su tamaño e inténtalo de nuevo.');photo=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}const p={id:uid(),personId,recruiterId:person?.recruiterId||'',month,amount,boxCost:Number($('paymentBoxCost').value)||0,commission:Number($('paymentCommission').value)||0,date:$('paymentDate').value,receiptDate:$('receiptDate').value||$('paymentDate').value,receiptTime:$('receiptTime').value,payerName:$('payerName').value.trim(),receiptReference:$('receiptReference').value.trim(),ocrText:$('ocrText').value.trim(),boxPaid:$('boxPaid').checked,commissionPaid:$('commissionPaid').checked,photo,notes:$('paymentNotes').value.trim(),createdAt:new Date().toISOString()};try{await put('payments',p);$('paymentForm').reset();$('paymentDate').value=today();$('receiptDate').value=today();$('paymentMonth').value=monthNow();$('boxPaid').checked=false;$('commissionPaid').checked=false;$('ocrStatus').textContent='Puedes intentar leer el comprobante con OCR cuando tengas internet.';await refresh();toast('Pago mensual guardado.')}catch(err){toast('No se pudo guardar. Puede faltar espacio en el teléfono.')}});
+function normalizeReference(value){return String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'')}
+function findPaymentMatches(candidate, existing){
+ const ref=normalizeReference(candidate.receiptReference);
+ return existing.map(old=>{
+   const oldRef=normalizeReference(old.receiptReference);
+   const reasons=[];
+   if(ref&&oldRef&&ref===oldRef)reasons.push('La referencia o número de operación coincide');
+   const newDate=candidate.receiptDate||candidate.date||'', oldDate=old.receiptDate||old.date||'';
+   const newTime=candidate.receiptTime||'', oldTime=old.receiptTime||'';
+   if(newDate&&newTime&&oldDate&&oldTime&&newDate===oldDate&&newTime===oldTime)reasons.push('La fecha y la hora del comprobante coinciden');
+   return reasons.length?{payment:old,reasons}:null;
+ }).filter(Boolean);
+}
+function duplicatePaymentHtml(match, people){
+ const old=match.payment, person=people.find(x=>x.id===old.personId);
+ return `<article class="duplicate-match"><strong>${esc(person?.name||'Afiliado eliminado')}</strong><p>Quien pagó: ${esc(old.payerName||'No indicado')}</p><p>Valor: <b>${money(old.amount)}</b></p><p>Fecha y hora: ${esc(old.receiptDate||old.date||'Sin fecha')} ${esc(old.receiptTime||'Sin hora')}</p><p>Referencia: ${esc(old.receiptReference||'Sin referencia')}</p><p>Coincidencia: <b>${esc(match.reasons.join(' y '))}</b></p></article>`;
+}
+let pendingDuplicatePayment=null;
+async function persistPayment(p){
+ try{
+  await put('payments',p);
+  $('duplicateDialog').close();pendingDuplicatePayment=null;
+  $('paymentForm').reset();$('paymentDate').value=today();$('receiptDate').value=today();$('paymentMonth').value=monthNow();$('boxPaid').checked=false;$('commissionPaid').checked=false;$('ocrStatus').textContent='Puedes intentar leer el comprobante con OCR cuando tengas internet.';
+  await refresh();toast('Pago mensual guardado.');
+ }catch(err){toast('No se pudo guardar. Puede faltar espacio en el teléfono.')}
+}
+$('cancelDuplicate').addEventListener('click',()=>{$('duplicateDialog').close();pendingDuplicatePayment=null;toast('Pago no guardado. Revisa los datos antes de intentarlo de nuevo.')});
+$('saveDuplicateAnyway').addEventListener('click',async()=>{if(pendingDuplicatePayment)await persistPayment(pendingDuplicatePayment)});
+$('paymentForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const personId=$('paymentPerson').value,month=$('paymentMonth').value,amount=Number($('paymentAmount').value);
+ if(!personId||!month||amount<0)return toast('Revisa los datos del pago.');
+ const person=(await all('people')).find(p=>p.id===personId);
+ const file=$('paymentPhoto').files[0];let photo='';
+ if(file){if(!file.type.startsWith('image/'))return toast('Selecciona una imagen válida.');if(file.size>5*1024*1024)return toast('La foto supera 5 MB. Reduce su tamaño e inténtalo de nuevo.');photo=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
+ const p={id:uid(),personId,recruiterId:person?.recruiterId||'',month,amount,boxCost:Number($('paymentBoxCost').value)||0,commission:Number($('paymentCommission').value)||0,date:$('paymentDate').value,receiptDate:$('receiptDate').value||$('paymentDate').value,receiptTime:$('receiptTime').value,payerName:$('payerName').value.trim(),receiptReference:$('receiptReference').value.trim(),ocrText:$('ocrText').value.trim(),boxPaid:$('boxPaid').checked,commissionPaid:$('commissionPaid').checked,photo,notes:$('paymentNotes').value.trim(),createdAt:new Date().toISOString()};
+ const [existing,people]=await Promise.all([all('payments'),all('people')]);
+ const matches=findPaymentMatches(p,existing);
+ if(matches.length){
+   pendingDuplicatePayment=p;
+   $('duplicateMatches').innerHTML=`<p><b>${matches.length}</b> coincidencia(s) encontrada(s). Pago que intentas registrar: <b>${money(p.amount)}</b>, ${esc(p.receiptDate)} ${esc(p.receiptTime||'sin hora')}, referencia ${esc(p.receiptReference||'sin referencia')}.</p>`+matches.map(m=>duplicatePaymentHtml(m,people)).join('');
+   $('duplicateDialog').showModal();
+   return;
+ }
+ await persistPayment(p);
+});
 $('paymentList').addEventListener('click',async e=>{const b=e.target.closest('[data-delete-payment]');if(b&&confirm('¿Eliminar este registro de pago y su comprobante?')){await del('payments',b.dataset.deletePayment);await refresh();toast('Pago eliminado.')}});
 $('dashMonth').addEventListener('change',refresh);$('reportMonth').addEventListener('change',refresh);
 function download(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)}

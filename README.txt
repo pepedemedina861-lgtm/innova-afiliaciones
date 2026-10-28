@@ -47,3 +47,20 @@ ACTUALIZACIÓN v3 — BAJAS Y LECTURA DE COMPROBANTES
 - El campo “Fecha de recaudo” y los nuevos campos “Fecha del comprobante” y “Hora del comprobante” se almacenan por separado.
 - El cambio conserva el nombre de la base IndexedDB y los almacenes existentes. No borres datos del sitio ni cambies de dominio/navegador si necesitas conservar registros.
 - Actualiza subiendo los archivos individuales a la raíz del mismo repositorio de GitHub Pages. Se incrementó la caché a innova-afiliaciones-v3.
+
+
+ACTUALIZACIÓN v4 — OCR PARA COMPROBANTES TIPO NEQUI
+- El OCR ahora procesa la imagen completa y también un recorte ampliado y mejorado de la zona donde suelen aparecer los detalles de la transacción.
+- Intenta extraer automáticamente el nombre situado debajo de “De”, la fecha larga en español, la hora, el importe que aparece debajo de “¿Cuánto?” y el valor situado debajo de “Referencia”.
+- En el comprobante de ejemplo, los datos esperados son: Valery Nathalia Jimenez Caicedo; 27/10/2026; 09:17; $400.000; referencia M03944021.
+- Los resultados siguen siendo editables y deben verificarse. El OCR es probabilístico y puede fallar con otras versiones de comprobantes o capturas borrosas.
+- La caché offline se actualizó a innova-afiliaciones-v4. Sube los archivos de la carpeta a la raíz del mismo repositorio GitHub Pages.
+
+
+ACTUALIZACIÓN v5 — DETECCIÓN DE POSIBLES PAGOS DUPLICADOS
+- Antes de guardar un pago nuevo, se compara con el historial local.
+- Se marca una coincidencia si el número de referencia/operación coincide (se ignoran espacios, guiones y mayúsculas/minúsculas), o si coinciden la fecha Y la hora del comprobante.
+- La ventana muestra cada registro coincidente: afiliado, pagador, importe, fecha, hora, referencia y motivo de coincidencia.
+- El administrador puede cancelar para revisar o guardar de todos modos si confirma que son pagos diferentes. No se borra ni modifica automáticamente ningún pago existente.
+- Una coincidencia es una alerta, no una prueba definitiva de duplicado. Si no se completó fecha/hora o referencia, algunos duplicados pueden no detectarse.
+- Para actualizar, exporta primero una copia JSON y sube todos los archivos individuales a la raíz del mismo repositorio GitHub Pages. Se actualizó la caché a innova-afiliaciones-v5. No borres el almacenamiento local ni cambies de dominio.
