@@ -62,7 +62,12 @@
       <div class="three"><label>Valor recibido (COP)<input id="paymentAmount" type="number" min="0" step="100" required placeholder="0"></label><label>Valor para caja (COP)<input id="paymentBoxCost" type="number" min="0" step="100" required placeholder="0"></label><label>Comisión reclutadora (COP)<input id="paymentCommission" type="number" min="0" step="100" required placeholder="0"></label></div>
       <div class="check-row"><label><input id="boxPaid" type="checkbox"> Pago a caja realizado</label><label><input id="commissionPaid" type="checkbox"> Comisión pagada</label></div>
       <label>Comprobante del recaudo (foto)<input id="paymentPhoto" type="file" accept="image/*" capture="environment"></label>
-      <p class="hint">La imagen queda guardada en este teléfono. Máximo 5 MB por foto.</p>
+      <button id="ocrBtn" class="outline" type="button">Leer datos desde la imagen</button>
+      <p id="ocrStatus" class="hint">Puedes intentar leer el comprobante con OCR cuando tengas internet. Revisa siempre los datos detectados.</p>
+      <div class="two"><label>Nombre de quien paga<input id="payerName" maxlength="120" placeholder="Nombre que aparece en el comprobante"></label><label>Fecha del comprobante<input id="receiptDate" type="date"></label></div>
+      <div class="two"><label>Hora del comprobante<input id="receiptTime" type="time"></label><label>Referencia / número de operación<input id="receiptReference" maxlength="100" placeholder="Opcional"></label></div>
+      <label>Texto reconocido del comprobante (editable)<textarea id="ocrText" rows="4" placeholder="Aquí aparecerá el texto detectado; puedes corregirlo."></textarea></label>
+      <p class="hint">La imagen queda guardada en este teléfono. Máximo 5 MB por foto. El reconocimiento puede equivocarse; confirma el nombre, la fecha y la hora antes de guardar.</p>
       <label>Observaciones<textarea id="paymentNotes" rows="2" placeholder="Opcional"></textarea></label>
       <button class="primary full" type="submit">Guardar pago</button>
     </form>
@@ -118,5 +123,5 @@
 </form></dialog>
 <div id="toast" role="status" aria-live="polite"></div>
 <footer>INNOVA · Afiliaciones y control mensual</footer>
-<script src="app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>\n<script src="app.js"></script>
 </body></html>

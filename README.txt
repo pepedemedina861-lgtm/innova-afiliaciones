@@ -37,3 +37,13 @@ PRIVACIDAD
 - GitHub Pages publica el código de forma pública; no subas archivos con datos personales, comprobantes ni copias JSON al repositorio.
 - Los datos y las fotos están en el almacenamiento local del navegador, no cifrados por esta aplicación. Protege el teléfono y las copias.
 - Esta aplicación es una herramienta local inicial, no un sistema contable certificado. La ganancia estimada no contempla gastos generales, impuestos, devoluciones ni otros ajustes.
+
+
+ACTUALIZACIÓN v3 — BAJAS Y LECTURA DE COMPROBANTES
+- La lista de afiliados ahora permite “Dar de baja” y “Reactivar”. Dar de baja cambia el estado a Inactivo y conserva ficha e historial; no elimina registros.
+- En pagos se guardan nombre de quien paga, fecha y hora del comprobante, referencia y texto OCR.
+- “Leer datos desde la imagen” usa Tesseract.js desde un CDN y necesita internet para cargar el motor OCR. La app y sus datos siguen siendo locales, pero el reconocimiento OCR no está garantizado sin conexión. Si no puede reconocer los datos, se pueden escribir manualmente.
+- El OCR puede fallar o confundir caracteres; revisar y corregir cada campo antes de guardar. El nombre solo se completa automáticamente si la imagen contiene una etiqueta reconocible como “Pagado por” o “Titular”.
+- El campo “Fecha de recaudo” y los nuevos campos “Fecha del comprobante” y “Hora del comprobante” se almacenan por separado.
+- El cambio conserva el nombre de la base IndexedDB y los almacenes existentes. No borres datos del sitio ni cambies de dominio/navegador si necesitas conservar registros.
+- Actualiza subiendo los archivos individuales a la raíz del mismo repositorio de GitHub Pages. Se incrementó la caché a innova-afiliaciones-v3.
