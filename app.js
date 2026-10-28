@@ -1,0 +1,53 @@
+/* INNOVA Afiliaciones: almacenamiento local en IndexedDB. */
+(() => {
+'use strict';
+const DB_NAME='innova-afiliaciones-db', DB_VERSION=1;
+let db, deferredInstall=null;
+const $=id=>document.getElementById(id);
+const today=()=>new Date().toISOString().slice(0,10);
+const monthNow=()=>today().slice(0,7);
+const money=n=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(Number(n)||0);
+const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2600)}
+function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=()=>{const d=req.result;if(!d.objectStoreNames.contains('people')){const s=d.createObjectStore('people',{keyPath:'id'});s.createIndex('document','document',{unique:true})}if(!d.objectStoreNames.contains('payments')){const s=d.createObjectStore('payments',{keyPath:'id'});s.createIndex('month','month');s.createIndex('personId','personId')}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
+function all(store){return new Promise((resolve,reject)=>{const r=db.transaction(store,'readonly').objectStore(store).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+function put(store,obj){return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(obj);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
+function del(store,id){return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
+function clearStore(store){return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
+function uid(){return crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2)}
+async function refresh(){
+ const [people,payments]=await Promise.all([all('people'),all('payments')]);
+ const paid=new Set(payments.filter(p=>p.month===monthNow()).map(p=>p.personId));
+ $('totalCount').textContent=people.length;$('activeCount').textContent=people.filter(p=>p.status==='Activo').length;
+ $('pendingCount').textContent=people.filter(p=>p.status==='Activo'&&!paid.has(p.id)).length;
+ const q=$('searchInput').value.trim().toLocaleLowerCase('es');
+ const visible=people.filter(p=>(p.name+' '+p.document+' '+(p.phone||'')).toLocaleLowerCase('es').includes(q)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ $('peopleList').innerHTML=visible.map(p=>`<article class="person-card"><div class="avatar">${escapeHtml(p.name.trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())}</div><div class="card-main"><strong>${escapeHtml(p.name)}</strong><p>Documento: ${escapeHtml(p.document)}</p><p>${escapeHtml(p.phone||'Sin teléfono')} · ${money(p.fee)}</p><span class="pill ${p.status==='Activo'?'':'off'}">${escapeHtml(p.status)}</span></div><div class="card-actions"><button class="mini" data-edit="${p.id}">Editar</button><button class="mini" data-pay="${p.id}">Pago</button></div></article>`).join('');
+ $('emptyPeople').classList.toggle('hidden',visible.length>0);
+ $('paymentPerson').innerHTML='<option value="">Selecciona un afiliado</option>'+people.sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>`<option value="${p.id}">${escapeHtml(p.name)} — ${escapeHtml(p.document)}</option>`).join('');
+ const pmap=new Map(people.map(p=>[p.id,p]));
+ const sorted=payments.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+ $('paymentList').innerHTML=sorted.map(p=>{const person=pmap.get(p.personId);return `<article class="payment-card">${p.photo?`<img class="receipt" src="${p.photo}" alt="Comprobante">`:'<div class="avatar">₱</div>'}<div class="card-main"><strong>${escapeHtml(person?.name||'Afiliado eliminado')}</strong><p>${escapeHtml(p.month)} · ${escapeHtml(p.date)}</p><p><b>${money(p.amount)}</b>${p.notes?' · '+escapeHtml(p.notes):''}</p></div><div class="card-actions"><button class="mini" data-delete-payment="${p.id}">Eliminar</button></div></article>`}).join('');
+ $('emptyPayments').classList.toggle('hidden',sorted.length>0);
+}
+function resetPersonForm(){ $('personForm').reset();$('personId').value='';$('personDialogTitle').textContent='Nuevo afiliado';$('personStatus').value='Activo' }
+function openPerson(p){resetPersonForm();if(p){$('personDialogTitle').textContent='Editar afiliado';for(const [k,id] of Object.entries({id:'personId',name:'personName',document:'personDocument',phone:'personPhone',fund:'personFund',start:'personStart',fee:'personFee',status:'personStatus',notes:'personNotes'}))$(id).value=p[k]??''} $('personDialog').showModal()}
+$('newPersonBtn').addEventListener('click',()=>openPerson());
+$('closeDialog').addEventListener('click',()=>$('personDialog').close());
+$('personForm').addEventListener('submit',async e=>{e.preventDefault();const id=$('personId').value||uid();const p={id,name:$('personName').value.trim(),document:$('personDocument').value.trim(),phone:$('personPhone').value.trim(),fund:$('personFund').value.trim(),start:$('personStart').value,fee:Number($('personFee').value)||0,status:$('personStatus').value,notes:$('personNotes').value.trim(),updatedAt:new Date().toISOString()};if(!p.name||!p.document)return toast('Completa nombre y documento.');try{const people=await all('people');if(people.some(x=>x.document===p.document&&x.id!==id))return toast('Ya existe un afiliado con ese documento.');await put('people',p);$('personDialog').close();await refresh();toast('Afiliado guardado.')}catch(err){toast('No se pudo guardar: '+err.message)}});
+$('searchInput').addEventListener('input',refresh);
+$('peopleList').addEventListener('click',async e=>{const edit=e.target.closest('[data-edit]'),pay=e.target.closest('[data-pay]');if(edit){const p=(await all('people')).find(x=>x.id===edit.dataset.edit);if(p)openPerson(p)}if(pay){$('paymentPerson').value=pay.dataset.pay;document.querySelector('[data-tab="payments"]').click();$('paymentMonth').focus()}});
+$('paymentDate').value=today();$('paymentMonth').value=monthNow();
+$('paymentForm').addEventListener('submit',async e=>{e.preventDefault();const personId=$('paymentPerson').value,month=$('paymentMonth').value,amount=Number($('paymentAmount').value);if(!personId||!month||amount<0)return toast('Revisa los datos del pago.');const file=$('paymentPhoto').files[0];let photo='';if(file){if(!file.type.startsWith('image/'))return toast('Selecciona una imagen válida.');if(file.size>5*1024*1024)return toast('La foto supera 5 MB. Reduce su tamaño e inténtalo de nuevo.');photo=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}const p={id:uid(),personId,month,amount,date:$('paymentDate').value,photo,notes:$('paymentNotes').value.trim(),createdAt:new Date().toISOString()};try{await put('payments',p);$('paymentForm').reset();$('paymentDate').value=today();$('paymentMonth').value=monthNow();await refresh();toast('Pago guardado.')}catch(err){toast('No se pudo guardar el pago. Puede faltar espacio en el teléfono.')}});
+$('paymentList').addEventListener('click',async e=>{const b=e.target.closest('[data-delete-payment]');if(b&&confirm('¿Eliminar este registro de pago y su comprobante?')){await del('payments',b.dataset.deletePayment);await refresh();toast('Pago eliminado.')}});
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));['people','payments','backup'].forEach(k=>$(k+'Panel').classList.toggle('hidden',k!==b.dataset.tab))}));
+function download(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)}
+$('exportBtn').addEventListener('click',async()=>{const data={app:'INNOVA Afiliaciones',version:1,exportedAt:new Date().toISOString(),people:await all('people'),payments:await all('payments')};download('innova-copia-'+today()+'.json',JSON.stringify(data), 'application/json');toast('Copia preparada. Guárdala en un lugar seguro.')});
+$('importInput').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const data=JSON.parse(await f.text());if(!Array.isArray(data.people)||!Array.isArray(data.payments))throw new Error('Formato de copia no válido');if(!confirm('Restaurar reemplazará TODOS los afiliados y pagos actuales. ¿Continuar?'))return;await clearStore('people');await clearStore('payments');for(const p of data.people)await put('people',p);for(const p of data.payments)await put('payments',p);await refresh();toast('Copia restaurada.')}catch(err){toast('No se pudo importar: '+err.message)}finally{e.target.value=''}});
+$('csvBtn').addEventListener('click',async()=>{const people=await all('people');const cols=['Nombre','Documento','Telefono','Caja','Fecha afiliacion','Valor mensual COP','Estado','Observaciones'];const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const rows=[cols,...people.map(p=>[p.name,p.document,p.phone,p.fund,p.start,p.fee,p.status,p.notes])];download('innova-afiliados-'+today()+'.csv','\ufeff'+rows.map(r=>r.map(quote).join(';')).join('\r\n'),'text/csv;charset=utf-8')});
+$('clearBtn').addEventListener('click',async()=>{if(confirm('Esta acción borrará todos los afiliados, pagos y fotos de este teléfono. ¿Seguro?')&&confirm('Última confirmación: exporta una copia antes de borrar. ¿Eliminar definitivamente?')){await clearStore('people');await clearStore('payments');await refresh();toast('Datos locales eliminados.')}});
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('installBtn').classList.remove('hidden')});
+$('installBtn').addEventListener('click',async()=>{if(!deferredInstall){toast('En Chrome, abre el menú ⋮ y elige “Instalar aplicación” o “Añadir a pantalla de inicio”.');return}deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$('installBtn').classList.add('hidden')});
+if('serviceWorker' in navigator && location.protocol!=='file:')window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+(async()=>{try{db=await openDB();await refresh()}catch(e){alert('No se pudo iniciar el almacenamiento local. Abre esta app desde Chrome o un servidor local compatible.');console.error(e)}})();
+})();
